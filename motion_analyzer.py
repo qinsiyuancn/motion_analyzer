@@ -4,8 +4,27 @@ import pandas as pd
 import re
 import os
 import sys
+import matplotlib.pyplot as plt
 
 col_speed = 'speed'
+
+def save_pic(df, file_name):
+    plt.rcParam["font.family"] = ["Arial", "Helvetica", "sans-serif"]
+    plt.figure(figsize=(10,6))
+    plt.plot(df['time'],df[col_speed], lable='Actual Speed', color = 'blue', linewidth = 1.5)
+    plt.plot(df['time'],df["target_speed_segment"], lable='Target Speed Segment', color = 'red', linewidth = 0.5, linestyle='--')
+    plt.axhline(y = 0, color = 'black', linestyle = '-', linewidth = 0.5)
+    plt.xlable('Time')
+    plt.ylable('Speed')
+    plt.title('Actual Speed vs Target SpeedSegment')
+    plt.legend()
+    plt.grid(True, linestyle = '--', alpha = 0.7)
+    plt.tight_layout()
+    plt.savefig(f"img/{file_name}.png", dpi = 300, bbox_inches = 'tight')
+    plt.close()
+
+def get_length_um(count):
+    return count
 
 def get_upper_index(stable_speed_abs, lower_limit):
     above_limit_mask = stable_speed_abs > temp_lower_limit
@@ -34,7 +53,6 @@ def calculate_tolerance(stable_speed_abs, target_speed_value):
     return final_tolerance
 
 def get_target_speed(file_path):
-    file_name = os.path.basename(file_path)
     match = re.search(r'spd[+-]?(\d+)', file_name, re.IGNORECASE)
     if not match:
         raise ValueError('file must have string "spdxxx". xxx is number which means speed.')
@@ -57,7 +75,8 @@ if __name__ == "__main__":
         print(f"file '{input_file}' not exist.")
         sys.exit(1)
     try:
-        target_speed_value = get_target_speed(input_file)
+        file_name = os.path.basename(file_path)
+        target_speed_value = get_target_speed(file_name)
         print(f"target speed is {target_speed}.")
         df = pd.read_csv(input_file)
         if col_speed not in df.columns:
@@ -77,6 +96,7 @@ if __name__ == "__main__":
         tolerance = calculate_tolerance(df['speed_stable_abs'], target_speed_value)
         first_idx, last_idx = get_target_speed_segment_index(df['speed_stable_abs'], target_speed_value, tolerance)
         df.loc[first_idx:last_idx, 'target_speed_segment'] = target_speed
+        save_pic(df, file_name)
 
     except Exception as e:
         print(f"failed: {e}")
