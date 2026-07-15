@@ -7,11 +7,13 @@ import sys
 import matplotlib.pyplot as plt
 
 col_speed = 'speed'
+col_time = 'time'
+col_position = 'position'
 
 def save_pic(df, file_name):
     plt.rcParam["font.family"] = ["Arial", "Helvetica", "sans-serif"]
     plt.figure(figsize=(10,6))
-    plt.plot(df['time'],df[col_speed], lable='Actual Speed', color = 'blue', linewidth = 1.5)
+    plt.plot(df['time'],df["speed_convered"], lable='Actual Speed', color = 'blue', linewidth = 1.5)
     plt.plot(df['time'],df["target_speed_segment"], lable='Target Speed Segment', color = 'red', linewidth = 0.5, linestyle='--')
     plt.axhline(y = 0, color = 'black', linestyle = '-', linewidth = 0.5)
     plt.xlable('Time')
@@ -20,11 +22,14 @@ def save_pic(df, file_name):
     plt.legend()
     plt.grid(True, linestyle = '--', alpha = 0.7)
     plt.tight_layout()
-    plt.savefig(f"img/{file_name}.png", dpi = 300, bbox_inches = 'tight')
+    plt.savefig(f"out/{file_name}/img.png", dpi = 300, bbox_inches = 'tight')
     plt.close()
 
-def get_length_um(count):
-    return count
+def get_length(data):
+    return data
+
+def get_speed(data):
+    return data
 
 def get_upper_index(stable_speed_abs, lower_limit):
     above_limit_mask = stable_speed_abs > temp_lower_limit
@@ -59,14 +64,14 @@ def get_target_speed(file_path):
     return int(match.group(1)
 
 def get_direction(df):
-    none_zero_speed = df[col_speed][df[col_speed] != 0]
+    none_zero_speed = df["speed_convered"][df["speed_convered"] != 0]
     if none_zero_speed.empty:
         raise ValueError("no zero speed");
     direction = 1 if (none_zero_speed > 0).sum() >= (none_zero_speed < 0).sum() else -1
     return direction
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print("usage: python3 motion_analyzer.py <file path>")
         sys.exit(1);
 
@@ -84,7 +89,9 @@ if __name__ == "__main__":
         direction = get_direction(df)
         target_speed = target_speed_value * direction
         print(f"target direct {'+' if direrction == 1 else '-'} target speed {target_speed_abs}")
-        df["speed_main_dir"] = fd[col_speed].where(df[col_speed] * direction >= 0, 0)
+        df["speed_convered"] = fd[col_speed].apply(get_speed)
+        df["position_convered"] = fd[col_position].apply(get_length)
+        df["speed_main_dir"] = fd["speed_convered"].where(df["speed_convered"] * direction >= 0, 0)
         df['segment'] = (df['speed_main_dir'] != df['speed_main_dir'].shift()).cumsum()
         segment_length = df[ df['speed_main_dir'] != 0 ].groupby('segment').size()
         if segment_length.empty:
@@ -97,6 +104,23 @@ if __name__ == "__main__":
         first_idx, last_idx = get_target_speed_segment_index(df['speed_stable_abs'], target_speed_value, tolerance)
         df.loc[first_idx:last_idx, 'target_speed_segment'] = target_speed
         save_pic(df, file_name)
+        non_zero_df = df[df["speed_stable_abs"] != 0]
+        start_motion_index = non_zero_df.index[0] - 1
+        end_motion_index = non_zero_df.index[-1] + 1
+        start_time = df.loc[start_motion_index, col_time]
+        start_position = df.loc[start_motion_index, "position_convered"]
+        end_time = df.loc[end_motion_index, col_time]
+        end_position = df.loc[end_motion_index, "position_convered"]
+        first_time = df.loc[first_idx, col_time]
+        last_time = df.loc[last_idx, col_time]
+        first_position = df.loc[first_motion_index, "position_convered"]
+        last_position = df.loc[last_motion_index, "position_convered"]
+        acc_time = first_time - start_time
+        acc_distance = abs(first_position - start_position)
+        dacc_time = end_time - last_time
+        dacc_distance = abs(end_position - last_position)
+        with open(f"out/{file_name}/report.txt", "w", encoding = "utf-8") as f:
+            f.write(f"{acc_time={acc_time}, acc_distance={acc_distance}, dacc_time={dacc_time}, dacc_distance={dacc_distancedacc_distance}}")
 
     except Exception as e:
         print(f"failed: {e}")
