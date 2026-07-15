@@ -81,7 +81,8 @@ if __name__ == "__main__":
         sys.exit(1)
     try:
         file_name = os.path.basename(file_path)
-        target_speed_value = get_target_speed(file_name)
+        file_name_no_suffix, suffix = os.path.splitext(file_name)
+        target_speed_value = get_target_speed(file_name_no_suffix)
         print(f"target speed is {target_speed}.")
         df = pd.read_csv(input_file)
         if col_speed not in df.columns:
@@ -103,7 +104,8 @@ if __name__ == "__main__":
         tolerance = calculate_tolerance(df['speed_stable_abs'], target_speed_value)
         first_idx, last_idx = get_target_speed_segment_index(df['speed_stable_abs'], target_speed_value, tolerance)
         df.loc[first_idx:last_idx, 'target_speed_segment'] = target_speed
-        save_pic(df, file_name)
+        os.makedirs(f"out/{file_name_no_suffix}", exist_ok = True)
+        save_pic(df, file_name_no_suffix)
         non_zero_df = df[df["speed_stable_abs"] != 0]
         start_motion_index = non_zero_df.index[0] - 1
         end_motion_index = non_zero_df.index[-1] + 1
@@ -119,8 +121,8 @@ if __name__ == "__main__":
         acc_distance = abs(first_position - start_position)
         dacc_time = end_time - last_time
         dacc_distance = abs(end_position - last_position)
-        with open(f"out/{file_name}/report.txt", "w", encoding = "utf-8") as f:
-            f.write(f"{acc_time={acc_time}, acc_distance={acc_distance}, dacc_time={dacc_time}, dacc_distance={dacc_distancedacc_distance}}")
+        with open(f"out/{file_name_no_suffix}/report.txt", "w", encoding = "utf-8") as f:
+            f.write(f"{acc_time={acc_time}, acc_distance={acc_distance}, dacc_time={dacc_time}, dacc_distance={dacc_distance}}")
 
     except Exception as e:
         print(f"failed: {e}")
